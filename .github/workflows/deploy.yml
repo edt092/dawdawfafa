@@ -1,0 +1,20 @@
+name: Deploy Backend — Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'pipeline.py'
+      - 'run_api.py'
+      - 'requirements.txt'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -X POST "${{ secrets.RAILWAY_DEPLOY_HOOK }}"

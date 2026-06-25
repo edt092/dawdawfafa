@@ -9,9 +9,26 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'sw
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'ContrataData — Contratación Pública Colombia',
-  description: 'Datos consolidados de SECOP y datos.gov.co — explorables en tiempo real.',
+  title: 'ContrataData — Contratos Públicos de Colombia',
+  description: 'Consulta y visualiza contratos del Estado colombiano extraídos de SECOP II. Datos de entidades públicas, contratistas y valores actualizados diariamente.',
+  metadataBase: new URL('https://contratadata.online'),
   icons: { icon: '/favicon.svg' },
+  openGraph: {
+    title: 'ContrataData — Contratos Públicos de Colombia',
+    description: 'Plataforma de transparencia: explora contratos del Estado colombiano por entidad, contratista, valor y fecha.',
+    url: 'https://contratadata.online',
+    siteName: 'ContrataData',
+    locale: 'es_CO',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ContrataData — Contratos Públicos de Colombia',
+    description: 'Explora contratos del Estado colombiano de SECOP II. Actualizado diariamente.',
+  },
+  alternates: {
+    canonical: 'https://contratadata.online',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

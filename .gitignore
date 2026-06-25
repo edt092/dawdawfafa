@@ -3,6 +3,13 @@
 .env.*.local
 errors.md
 pipeline_run.log
+
+# Documentos de planificación (solo uso local)
+oracle-guide.md
+escalabilidad.md
+escalation.md
+deploy-guide.md
+arquitectura.md
 __pycache__/
 *.py[cod]
 .pytest_cache/
