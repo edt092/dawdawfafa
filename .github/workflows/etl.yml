@@ -43,9 +43,9 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
           LOG_LEVEL: INFO
-          DATE_FROM: ${{ github.event.inputs.date_from }}
-          MAX_RECORDS: ${{ github.event.inputs.max_records }}
-          FORCE_FULL_LOAD: ${{ github.event.inputs.force_full }}
+          DATE_FROM: ${{ github.event.inputs.date_from || '' }}
+          MAX_RECORDS: ${{ github.event.inputs.max_records || '0' }}
+          FORCE_FULL_LOAD: ${{ github.event.inputs.force_full || '' }}
           PAGE_DELAY: '0.3'
           PYTHONFAULTHANDLER: '1'
 

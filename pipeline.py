@@ -142,7 +142,7 @@ def run() -> None:
 
     with PipelineErrorLog() as err:
         extractor = SecopSocrataExtractor(
-            max_records=int(os.getenv("MAX_RECORDS", "0")) or None,
+            max_records=int(os.getenv("MAX_RECORDS") or "0") or None,
             date_from=os.getenv("DATE_FROM"),
             since=since,
             error_log=err,
