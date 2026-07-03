@@ -29,17 +29,17 @@ datos.gov.co / SECOP II
         │
         │  Railway (FastAPI)
         ▼
-  api.contratadata.online
+  api.contratadata.xyz
         │
         │  Vercel (Next.js)
         ▼
-  contratadata.online
+  contratadata.xyz
 ```
 
 | Servicio | Plataforma | Rol |
 |---|---|---|
-| Frontend | Vercel | Next.js · CDN global · deploy automático |
-| API REST | Railway | FastAPI · `api.contratadata.online` |
+| Frontend | Vercel | Next.js · CDN global · deploy automático en push a `main` |
+| API REST | Railway | FastAPI · `api.contratadata.xyz` · deploy automático en push a `main` |
 | ETL cron | GitHub Actions | `pipeline.py` diario a las 3 AM Colombia |
 | Base de datos | Neon | PostgreSQL serverless |
 
@@ -50,16 +50,26 @@ datos.gov.co / SECOP II
 ### Requisitos
 
 - Python 3.12+
-- Node.js 18+ y pnpm 11+
+- Node.js 18+ y pnpm 9+
 - Variable `DATABASE_URL` en `.env`
 
 ### Backend
 
 ```bash
+cp .env.example .env   # completar DATABASE_URL y SOCRATA_APP_TOKEN
 pip install -r requirements.txt
 python run_api.py
 # → http://localhost:8000/api/docs
 ```
+
+### Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v --cov=src --cov-report=term-missing
+```
+
+Corren automáticamente en cada push (todas las ramas) vía GitHub Actions (`test.yml`).
 
 ### Frontend
 
@@ -107,6 +117,7 @@ En producción el pipeline corre automáticamente cada día a las 3 AM (Colombia
 | `MAX_RECORDS` | Límite de registros a extraer (0 = sin límite) | Opcional |
 | `DATE_FROM` | Filtrar por `fecha_de_firma >= YYYY-MM-DD` | Opcional |
 | `FORCE_FULL_LOAD` | `1` para ignorar el timestamp y recargar todo | Opcional |
+| `PAGE_DELAY` | Segundos de espera entre páginas de Socrata (default `0.3`) | Opcional |
 | `LOG_LEVEL` | `DEBUG` / `INFO` / `WARNING` | Opcional |
 | `PORT` | Puerto del servidor (Railway lo inyecta automáticamente) | Railway |
 
@@ -122,17 +133,19 @@ En producción el pipeline corre automáticamente cada día a las 3 AM (Colombia
 
 | Evento | Acción |
 |---|---|
-| Push a `main` (archivos backend) | GitHub Actions → redeploy en Railway |
-| Push a `main` (cualquier archivo) | Vercel → redeploy del frontend automáticamente |
-| Diario 3 AM Colombia | GitHub Actions → ejecuta `pipeline.py` (ETL incremental) |
+| Push a cualquier rama | GitHub Actions → `test.yml` corre la suite de tests |
+| Push a `main` | Railway → redeploy automático del backend (integración nativa GitHub↔Railway) |
+| Push a `main` | Vercel → redeploy automático del frontend (integración nativa GitHub↔Vercel) |
+| Diario 3 AM Colombia (o manual vía `workflow_dispatch`) | GitHub Actions → `etl.yml` ejecuta `pipeline.py` (ETL incremental) |
 
-Secrets requeridos en GitHub → Settings → Secrets:
+Secrets requeridos en GitHub → Settings → Secrets → Actions (solo usados por `etl.yml`):
 
 ```
 DATABASE_URL         → URL de Neon
 SOCRATA_APP_TOKEN    → token de datos.gov.co
-RAILWAY_DEPLOY_HOOK  → webhook de deploy de Railway
 ```
+
+Railway y Vercel despliegan directamente desde su propia integración con el repo — no dependen de GitHub Actions.
 
 ---
 
@@ -142,10 +155,12 @@ RAILWAY_DEPLOY_HOOK  → webhook de deploy de Railway
 Procfile                  # Comando de producción para Railway
 pipeline.py               # Orquestador ETL (incremental automático)
 run_api.py                # Entry point uvicorn (desarrollo local)
+migrate_proceso_de_compra.py  # Migración one-off ya aplicada (ver docstring)
+migrate_supplier_unique.py    # Migración one-off ya aplicada (ver docstring)
 .github/
   workflows/
-    etl.yml               # ETL diario 3 AM + trigger manual
-    deploy.yml            # Redeploy Railway en push a main
+    etl.yml               # ETL diario 3 AM + trigger manual (workflow_dispatch)
+    test.yml              # Suite de tests en cada push
 src/
   extract/
     secop_socrata.py      # Adaptador Socrata (SODA API) con filtro :updated_at
@@ -178,7 +193,7 @@ frontend/
 
 ## Endpoints de la API
 
-Documentación interactiva en `https://api.contratadata.online/api/docs`.
+Documentación interactiva en `https://api.contratadata.xyz/api/docs`.
 
 | Endpoint | Descripción |
 |---|---|
