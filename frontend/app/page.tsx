@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { api, type ContractItem, type Filters } from '@/lib/api'
 import { fmtInt, fmtCOP, fmtAbbr, estadoStyle, fuenteStyle } from '@/lib/format'
+import { useTheme } from '@/lib/theme-context'
 import type { TableRow } from '@/lib/types'
 import KPICard from '@/components/KPICard'
 import FilterBar from '@/components/FilterBar'
@@ -12,9 +13,10 @@ import ContractsTable from '@/components/ContractsTable'
 import TopEntidadesChart from '@/components/charts/TopEntidadesChart'
 import EvolucionChart from '@/components/charts/EvolucionChart'
 import CalidadChart from '@/components/charts/CalidadChart'
+import ChartImage from '@/components/charts/ChartImage'
 
 const PER_PAGE = 50
-type ChartTab = 'entidades' | 'evolucion' | 'calidad'
+type ChartTab = 'entidades' | 'evolucion' | 'calidad' | 'calendario' | 'distribucion'
 
 function toTableRow(c: ContractItem, router: ReturnType<typeof useRouter>): TableRow {
   const es = estadoStyle(c.estado)
@@ -38,6 +40,7 @@ function toTableRow(c: ContractItem, router: ReturnType<typeof useRouter>): Tabl
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { theme } = useTheme()
 
   // Draft state (lo que el usuario escribe antes de aplicar)
   const [dEntidad, setDEntidad] = useState('Todas')
@@ -150,6 +153,8 @@ export default function DashboardPage() {
     { key: 'entidades', label: 'Top entidades' },
     { key: 'evolucion', label: 'Evolución temporal' },
     { key: 'calidad', label: 'Calidad de datos' },
+    { key: 'calendario', label: 'Calendario' },
+    { key: 'distribucion', label: 'Distribución' },
   ]
 
   const isLoading = statsQ.isLoading || contractsQ.isLoading
@@ -289,6 +294,24 @@ export default function DashboardPage() {
             calidadQ.isLoading
               ? <div style={{ color: 'var(--muted)', fontSize: 14 }}>Cargando gráfica…</div>
               : <CalidadChart data={calidadQ.data ?? []} />
+          )}
+          {chartTab === 'calendario' && (
+            <ChartImage
+              src={api.imageUrl('/charts/images/monthly-heatmap.png', { theme, entidad: filters.entidad })}
+              alt="Mapa de calor de contratación por año y mes"
+              title="¿En qué meses se concentra más contratación?"
+              subtitle="Cantidad de contratos por año/mes — respeta el filtro de entidad."
+            />
+          )}
+          {chartTab === 'distribucion' && (
+            <ChartImage
+              src={api.imageUrl('/charts/images/value-distribution.png', {
+                theme, entidad: filters.entidad, estado: filters.estado, desde: filters.desde, hasta: filters.hasta,
+              })}
+              alt="Distribución de valores de contratos"
+              title="¿La mayoría de contratos son pequeños o pocos concentran mucho dinero?"
+              subtitle="Distribución de valores en escala logarítmica — respeta los filtros activos."
+            />
           )}
         </div>
       </div>

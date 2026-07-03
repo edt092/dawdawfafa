@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation'
 import { BarList, AreaChart } from '@tremor/react'
 import { api, type ContractItem } from '@/lib/api'
 import { fmtInt, fmtCOP, fmtAbbr, estadoStyle, fuenteStyle } from '@/lib/format'
+import { useTheme } from '@/lib/theme-context'
 import type { TableRow } from '@/lib/types'
 import EstadoBadge from '@/components/EstadoBadge'
 import FuenteBadge from '@/components/FuenteBadge'
+import ChartImage from '@/components/charts/ChartImage'
 
 function toRow(c: ContractItem, router: ReturnType<typeof useRouter>): TableRow {
   const es = estadoStyle(c.estado)
@@ -36,6 +38,7 @@ const thStyle: React.CSSProperties = {
 export default function EntidadPage({ params }: { params: { slug: string } }) {
   const { slug } = params
   const router = useRouter()
+  const { theme } = useTheme()
   const name = decodeURIComponent(slug)
   const [page, setPage] = useState(1)
 
@@ -154,6 +157,16 @@ export default function EntidadPage({ params }: { params: { slug: string } }) {
               />
           }
         </div>
+      </div>
+
+      {/* Boxenplot de valores por estado */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 26 }}>
+        <ChartImage
+          src={api.imageUrl('/charts/images/entity-boxenplot.png', { theme, entidad: name })}
+          alt={`Distribución de valores de contratos por estado — ${name}`}
+          title="¿Cómo cambia el tamaño de los contratos según el estado?"
+          subtitle="Distribución de valores en escala logarítmica, agrupados por estado del contrato."
+        />
       </div>
 
       {/* Table */}

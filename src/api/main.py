@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routers import charts, contratistas, contracts, entidades, estados, pipeline
+from src.api.routers import chart_images, charts, contratistas, contracts, entidades, estados, pipeline
 
 load_dotenv()
 
@@ -43,6 +43,7 @@ app.include_router(contracts.router,    prefix=PREFIX)
 app.include_router(entidades.router,    prefix=PREFIX)
 app.include_router(contratistas.router, prefix=PREFIX)
 app.include_router(charts.router,       prefix=PREFIX)
+app.include_router(chart_images.router, prefix=PREFIX)
 app.include_router(pipeline.router,     prefix=PREFIX)
 app.include_router(estados.router,      prefix=PREFIX)
 

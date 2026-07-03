@@ -1,13 +1,17 @@
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api'
 
-async function get<T>(path: string, params?: Record<string, string | number | boolean | undefined | null>): Promise<T> {
+function buildUrl(path: string, params?: Record<string, string | number | boolean | undefined | null>): string {
   const url = new URL(`${API}${path}`)
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v))
     })
   }
-  const res = await fetch(url.toString(), { next: { revalidate: 0 } })
+  return url.toString()
+}
+
+async function get<T>(path: string, params?: Record<string, string | number | boolean | undefined | null>): Promise<T> {
+  const res = await fetch(buildUrl(path, params), { next: { revalidate: 0 } })
   if (!res.ok) throw new Error(`API ${res.status} — ${path}`)
   return res.json()
 }
@@ -167,4 +171,8 @@ export const api = {
   pipelineStatus: () => get<PipelineStatus>('/pipeline/status'),
   pipelineRejected: () => get<CalidadItem[]>('/pipeline/rejected'),
   pipelineRuns: () => get<PipelineRunItem[]>('/pipeline/runs'),
+
+  // Imágenes seaborn/matplotlib (visualizaciones estáticas analíticas)
+  imageUrl: (path: string, params?: Record<string, string | number | boolean | undefined | null>) =>
+    buildUrl(path, params),
 }
