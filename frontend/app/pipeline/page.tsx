@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { fmtInt, fuenteStyle } from '@/lib/format'
+import { fmtDateTime, fmtInt, fuenteStyle, pipelineRunStatusMeta } from '@/lib/format'
 
 const thStyle: React.CSSProperties = {
   padding: '11px 18px', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em',
@@ -20,9 +20,15 @@ export default function PipelinePage() {
     queryKey: ['pipeline-rejected'],
     queryFn: api.pipelineRejected,
   })
+  const runsQ = useQuery({
+    queryKey: ['pipeline-runs'],
+    queryFn: api.pipelineRuns,
+    refetchInterval: 30_000,
+  })
 
   const status = statusQ.data
   const rejected = rejectedQ.data ?? []
+  const runs = runsQ.data ?? []
   const maxCant = rejected.reduce((m, r) => Math.max(m, r.cantidad), 1)
 
   const dbOk = status?.db_ok ?? null
@@ -95,6 +101,74 @@ export default function PipelinePage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Runs history */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 24 }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+          Historial de corridas del pipeline
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Inicio</th>
+              <th style={thStyle}>Modo</th>
+              <th style={thStyle}>Estado</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Extraídos</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Insertados</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Actualizados</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Lotes fallidos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {runsQ.isLoading && (
+              <tr>
+                <td colSpan={7} style={{ padding: '24px 18px', color: 'var(--muted)', fontSize: 13 }}>Cargando…</td>
+              </tr>
+            )}
+            {runs.map((r) => {
+              const meta = pipelineRunStatusMeta(r.status)
+              return (
+                <tr key={r.id} className="row-hover" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '13px 18px', fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                    {fmtDateTime(r.started_at)}
+                  </td>
+                  <td style={{ padding: '13px 18px', color: 'var(--muted)', fontSize: 12.5 }}>
+                    {r.modo ?? '—'}
+                  </td>
+                  <td style={{ padding: '13px 18px' }}>
+                    <span style={{
+                      display: 'inline-block', padding: '3px 9px', borderRadius: 6,
+                      fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)',
+                      color: meta.color, background: `${meta.color}26`,
+                    }}>
+                      {meta.label}
+                    </span>
+                  </td>
+                  <td style={{ padding: '13px 18px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                    {fmtInt(r.extracted_count)}
+                  </td>
+                  <td style={{ padding: '13px 18px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--success)' }}>
+                    {fmtInt(r.inserted_count)}
+                  </td>
+                  <td style={{ padding: '13px 18px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                    {fmtInt(r.updated_count)}
+                  </td>
+                  <td style={{ padding: '13px 18px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: r.failed_batches > 0 ? 'var(--danger)' : 'var(--text)' }}>
+                    {r.failed_batches > 0 ? `${r.failed_batches}/${r.total_batches}` : '0'}
+                  </td>
+                </tr>
+              )
+            })}
+            {!runsQ.isLoading && runs.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: '24px 18px', color: 'var(--muted)', fontSize: 13 }}>
+                  Sin corridas registradas todavía.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Rejects Table */}

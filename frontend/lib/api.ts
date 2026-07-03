@@ -98,6 +98,21 @@ export interface PipelineStatus {
   total_rechazados: number
 }
 
+export interface PipelineRunItem {
+  id: number
+  started_at: string
+  finished_at: string | null
+  status: string
+  modo: string | null
+  extracted_count: number
+  inserted_count: number
+  updated_count: number
+  rejected_count: number
+  failed_batches: number
+  total_batches: number
+  error_summary: string | null
+}
+
 export type Filters = {
   entidad?: string
   contratista?: string
@@ -151,4 +166,5 @@ export const api = {
   // Pipeline monitor
   pipelineStatus: () => get<PipelineStatus>('/pipeline/status'),
   pipelineRejected: () => get<CalidadItem[]>('/pipeline/rejected'),
+  pipelineRuns: () => get<PipelineRunItem[]>('/pipeline/runs'),
 }

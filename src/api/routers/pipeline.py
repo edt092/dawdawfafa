@@ -7,8 +7,8 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from src.api.deps import get_db
-from src.api.schemas import CalidadItem, GlobalStats, PipelineStatus
-from src.load.models import Contract, Entity, RejectedRecord, Supplier
+from src.api.schemas import CalidadItem, GlobalStats, PipelineRunItem, PipelineStatus
+from src.load.models import Contract, Entity, PipelineRun, RejectedRecord, Supplier
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -55,6 +55,14 @@ def rejected_records(db: Session = Depends(get_db)) -> list[CalidadItem]:
         CalidadItem(motivo=r["motivo"], fuente=r["fuente"], cantidad=r["cantidad"])
         for r in rows
     ]
+
+
+@router.get("/runs", response_model=list[PipelineRunItem])
+def pipeline_runs(limit: int = 20, db: Session = Depends(get_db)) -> list[PipelineRunItem]:
+    rows = db.execute(
+        select(PipelineRun).order_by(PipelineRun.started_at.desc()).limit(limit)
+    ).scalars().all()
+    return [PipelineRunItem.model_validate(r) for r in rows]
 
 
 @router.get("/stats", response_model=GlobalStats)

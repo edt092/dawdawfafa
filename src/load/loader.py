@@ -8,7 +8,12 @@ from sqlalchemy import create_engine, insert, literal_column, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from src.load.models import Base, Contract, Entity, PipelineMeta, RejectedRecord, Supplier
+from src.load.models import (
+    Base, Contract, Entity, PipelineBatchError, PipelineMeta, PipelineRun,
+    RejectedRecord, Supplier,
+)
+
+NIT_MAX_LEN = 150
 
 logger = logging.getLogger(__name__)
 
@@ -106,9 +111,21 @@ def load_batch(
     supplier_cache: dict,
 ) -> tuple[int, int]:
     """Carga un lote en su propia transacción, en operaciones bulk en vez de
-    fila por fila. Retorna (insertados, actualizados)."""
+    fila por fila. Retorna (insertados, actualizados).
+
+    entity_cache/supplier_cache se comparten entre lotes de toda la corrida
+    por eficiencia (evita SELECTs repetidos). Por eso operamos sobre copias
+    locales y solo las fusionamos de vuelta al cache del llamador si la
+    transacción del lote confirma sin errores: si el lote falla y hace
+    rollback, un id "tentativo" que quedó en el cache del llamador seguiría
+    apuntando a una fila que ya no existe, y todo lote futuro que reuse ese
+    id fallaría con ForeignKeyViolation en cascada (cache poisoning).
+    """
     if not valid and not rejected:
         return 0, 0
+
+    batch_entity_cache = dict(entity_cache)
+    batch_supplier_cache = dict(supplier_cache)
 
     with Session(engine) as session:
         with session.begin():
@@ -117,19 +134,26 @@ def load_batch(
                 for rec in valid
             }
             _bulk_ensure_ids(
-                session, Entity, Entity.nombre_canonico, entity_payloads, entity_cache
+                session, Entity, Entity.nombre_canonico, entity_payloads, batch_entity_cache
             )
 
             supplier_payloads: dict[str, dict] = {}
             for rec in valid:
                 nombre = rec.get("contratista") or "DESCONOCIDO"
                 if nombre not in supplier_payloads:
+                    nit = rec.get("identificacion_proveedor")
+                    if nit and len(nit) > NIT_MAX_LEN:
+                        logger.warning(
+                            "nit_o_id_fiscal truncado (%d -> %d chars) para proveedor '%s'",
+                            len(nit), NIT_MAX_LEN, nombre,
+                        )
+                        nit = nit[:NIT_MAX_LEN]
                     supplier_payloads[nombre] = {
                         "nombre": nombre,
-                        "nit_o_id_fiscal": rec.get("identificacion_proveedor"),
+                        "nit_o_id_fiscal": nit,
                     }
             _bulk_ensure_ids(
-                session, Supplier, Supplier.nombre, supplier_payloads, supplier_cache
+                session, Supplier, Supplier.nombre, supplier_payloads, batch_supplier_cache
             )
 
             # dedup por clave idempotente: un INSERT ... ON CONFLICT DO UPDATE
@@ -140,8 +164,8 @@ def load_batch(
                 nombre = rec.get("contratista") or "DESCONOCIDO"
                 key = (rec.get("fuente", "UNKNOWN"), rec["proceso_de_compra"])
                 contract_rows[key] = {
-                    "entity_id": entity_cache[rec["entidad_canonica"]],
-                    "supplier_id": supplier_cache[nombre],
+                    "entity_id": batch_entity_cache[rec["entidad_canonica"]],
+                    "supplier_id": batch_supplier_cache[nombre],
                     "valor": Decimal(str(rec["valor"])),
                     "fecha": _parse_date(rec.get("fecha")),
                     "estado": rec.get("estado"),
@@ -169,6 +193,10 @@ def load_batch(
                 updated = len(results) - inserted
 
             _persist_rejected(session, rejected)
+
+    # Solo llegamos aquí si el 'with session.begin()' confirmó sin excepción.
+    entity_cache.update(batch_entity_cache)
+    supplier_cache.update(batch_supplier_cache)
 
     return inserted, updated
 
@@ -218,6 +246,43 @@ def set_last_processed_updated_at(engine, dt: datetime) -> None:
                 )
             )
             session.execute(stmt)
+
+
+def start_pipeline_run(engine, started_at: datetime, modo: str) -> int:
+    """Crea la fila de la corrida en estado 'running' y devuelve su id."""
+    with Session(engine) as session:
+        with session.begin():
+            run = PipelineRun(started_at=started_at, status="running", modo=modo)
+            session.add(run)
+            session.flush()
+            return run.id
+
+
+def record_batch_error(
+    engine, run_id: int, batch_number: int, approx_offset: int,
+    error_type: str, error_message: str,
+) -> None:
+    with Session(engine) as session:
+        with session.begin():
+            session.add(PipelineBatchError(
+                run_id=run_id,
+                batch_number=batch_number,
+                approx_offset=approx_offset,
+                error_type=error_type,
+                error_message=error_message[:2000],
+            ))
+
+
+def finish_pipeline_run(engine, run_id: int, **fields) -> None:
+    """Actualiza la fila de la corrida con el resultado final. 'fields' debe
+    incluir al menos 'status'; el resto son columnas opcionales de PipelineRun."""
+    with Session(engine) as session:
+        with session.begin():
+            run = session.get(PipelineRun, run_id)
+            if run is None:
+                return
+            for key, value in fields.items():
+                setattr(run, key, value)
 
 
 def run_load(database_url: str, valid: list[dict], rejected: list[dict]) -> None:

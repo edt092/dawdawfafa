@@ -102,3 +102,20 @@ class PipelineStatus(BaseModel):
     total_entidades: int
     total_proveedores: int
     total_rechazados: int
+
+
+class PipelineRunItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    started_at: datetime
+    finished_at: Optional[datetime]
+    status: str
+    modo: Optional[str]
+    extracted_count: int
+    inserted_count: int
+    updated_count: int
+    rejected_count: int
+    failed_batches: int
+    total_batches: int
+    error_summary: Optional[str]

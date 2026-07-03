@@ -40,7 +40,9 @@ class Supplier(Base):
 
     id              = Column(Integer, primary_key=True, autoincrement=True)
     nombre          = Column(String(500), nullable=False)
-    nit_o_id_fiscal = Column(String(50))
+    # 150 en vez de 50: un NIT/id fiscal más largo de lo esperado no debe
+    # tumbar el INSERT masivo del lote entero (ver migrate_widen_nit.py).
+    nit_o_id_fiscal = Column(String(150))
     creado_en       = Column(DateTime, nullable=False, default=func.now())
 
     contracts = relationship("Contract", back_populates="supplier")
@@ -84,6 +86,45 @@ class PipelineMeta(Base):
     key        = Column(String(100), primary_key=True)
     value      = Column(String(500), nullable=False)
     updated_at = Column(DateTime, nullable=False, default=func.now())
+
+
+class PipelineRun(Base):
+    """Una fila por corrida de pipeline.py — reemplaza a errors.md (que vive
+    y muere con el runner efímero de GitHub Actions) como fuente de verdad
+    de si una corrida realmente cargó datos o solo *pareció* exitosa."""
+    __tablename__ = "pipeline_runs"
+
+    id               = Column(Integer, primary_key=True, autoincrement=True)
+    started_at       = Column(DateTime, nullable=False)
+    finished_at      = Column(DateTime)
+    # running | success | success_with_errors | degraded_aborted | failed
+    status           = Column(String(30), nullable=False, default="running")
+    modo             = Column(String(80))
+    extracted_count  = Column(Integer, nullable=False, default=0)
+    inserted_count   = Column(Integer, nullable=False, default=0)
+    updated_count    = Column(Integer, nullable=False, default=0)
+    rejected_count   = Column(Integer, nullable=False, default=0)
+    failed_batches   = Column(Integer, nullable=False, default=0)
+    total_batches    = Column(Integer, nullable=False, default=0)
+    error_summary    = Column(String(2000))
+    created_at       = Column(DateTime, nullable=False, default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<PipelineRun id={self.id} status='{self.status}'>"
+
+
+class PipelineBatchError(Base):
+    """Detalle por lote fallido de una corrida — permite diagnosticar sin
+    tener que ir a buscar en los logs crudos de GitHub Actions."""
+    __tablename__ = "pipeline_batch_errors"
+
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    run_id         = Column(Integer, ForeignKey("pipeline_runs.id"), nullable=False)
+    batch_number   = Column(Integer, nullable=False)
+    approx_offset  = Column(Integer)
+    error_type     = Column(String(200))
+    error_message  = Column(String(2000))
+    created_at     = Column(DateTime, nullable=False, default=func.now())
 
 
 class RejectedRecord(Base):
