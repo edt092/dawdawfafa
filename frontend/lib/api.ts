@@ -16,15 +16,29 @@ async function get<T>(path: string, params?: Record<string, string | number | bo
   return res.json()
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    method,
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) throw new Error(`API ${res.status} — ${path}`)
+  if (!res.ok) {
+    const err = new Error(`API ${res.status} — ${path}`) as Error & { status?: number }
+    err.status = res.status
+    throw err
+  }
+  if (res.status === 204) return undefined as T
   return res.json()
 }
+
+const post = <T>(path: string, body: unknown) => send<T>('POST', path, body)
+const patch = <T>(path: string, body: unknown) => send<T>('PATCH', path, body)
+const del = <T>(path: string) => send<T>('DELETE', path)
+
+// 402 = requiere plan Pro (ver src/api/deps.py::require_pro) — las páginas
+// premium usan esto para distinguir "falta plan Pro" de un error genérico.
+export const apiErrorStatus = (err: unknown): number | undefined =>
+  (err as { status?: number } | null)?.status
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -150,6 +164,72 @@ export interface FeedbackResponse {
   reward_status: string
 }
 
+// ── Premium (MVP — ver scalability.md) ───────────────────────────────────────
+
+export interface PremiumStatus {
+  email: string
+  plan: 'free' | 'pro'
+  premium_status: 'active' | 'trial' | 'expired'
+  premium_until: string | null
+  is_pro: boolean
+}
+
+export interface PremiumLeadPayload {
+  email: string
+  feature?: string
+}
+
+export interface PremiumLeadResponse {
+  id: number
+  email: string
+}
+
+export type Frecuencia = 'daily' | 'weekly'
+
+export interface SavedAlertPayload {
+  name: string
+  entidad?: string | null
+  contratista?: string | null
+  estado?: string | null
+  desde?: string | null
+  hasta?: string | null
+  valor_min?: number | null
+  valor_max?: number | null
+  frecuencia: Frecuencia
+}
+
+export interface SavedAlertItem {
+  id: number
+  user_email: string
+  name: string
+  entidad: string | null
+  contratista: string | null
+  estado: string | null
+  desde: string | null
+  hasta: string | null
+  valor_min: number | null
+  valor_max: number | null
+  frecuencia: string
+  is_active: boolean
+  last_checked_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CompetitorPayload {
+  supplier_name: string
+  nickname?: string | null
+}
+
+export interface CompetitorItem {
+  id: number
+  user_email: string
+  supplier_name: string
+  nickname: string | null
+  is_active: boolean
+  created_at: string
+}
+
 export type Filters = {
   entidad?: string
   contratista?: string
@@ -211,4 +291,28 @@ export const api = {
 
   // Feedback de usuarios (user testing, sin login)
   submitFeedback: (payload: FeedbackPayload) => post<FeedbackResponse>('/feedback', payload),
+
+  // Premium — acceso por email, sin login (ver scalability.md)
+  premiumStatus: (email: string) => get<PremiumStatus>('/premium/status', { email }),
+  submitPremiumLead: (payload: PremiumLeadPayload) => post<PremiumLeadResponse>('/premium/leads', payload),
+
+  // Alertas guardadas (plan Pro)
+  createAlert: (email: string, payload: SavedAlertPayload) =>
+    post<SavedAlertItem>(`/alerts?${new URLSearchParams({ email })}`, payload),
+  listAlerts: (email: string) => get<SavedAlertItem[]>('/alerts', { email }),
+  updateAlert: (email: string, id: number, payload: Partial<Pick<SavedAlertItem, 'name' | 'is_active' | 'frecuencia'>>) =>
+    patch<SavedAlertItem>(`/alerts/${id}?${new URLSearchParams({ email })}`, payload),
+  deleteAlert: (email: string, id: number) => del<void>(`/alerts/${id}?${new URLSearchParams({ email })}`),
+
+  // Monitor de competidores (plan Pro)
+  followCompetitor: (email: string, payload: CompetitorPayload) =>
+    post<CompetitorItem>(`/competitors?${new URLSearchParams({ email })}`, payload),
+  listCompetitors: (email: string) => get<CompetitorItem[]>('/competitors', { email }),
+  unfollowCompetitor: (email: string, id: number) => del<void>(`/competitors/${id}?${new URLSearchParams({ email })}`),
+
+  // Reportes Excel/PDF (plan Pro) — URLs de descarga directa
+  entityReportUrl: (nombre: string, email: string, format: 'xlsx' | 'pdf' = 'xlsx') =>
+    buildUrl(`/reports/entity/${encodeURIComponent(nombre)}.${format}`, { email }),
+  contractorReportUrl: (nombre: string, email: string, format: 'xlsx' | 'pdf' = 'xlsx') =>
+    buildUrl(`/reports/contractor/${encodeURIComponent(nombre)}.${format}`, { email }),
 }

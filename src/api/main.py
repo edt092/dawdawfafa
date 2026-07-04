@@ -6,7 +6,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routers import chart_images, charts, contratistas, contracts, entidades, estados, feedback, pipeline
+from src.api.routers import (
+    alerts, chart_images, charts, competitors, contratistas, contracts,
+    entidades, estados, feedback, pipeline, premium, reports,
+)
 
 load_dotenv()
 
@@ -33,7 +36,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -47,6 +50,10 @@ app.include_router(chart_images.router, prefix=PREFIX)
 app.include_router(pipeline.router,     prefix=PREFIX)
 app.include_router(estados.router,      prefix=PREFIX)
 app.include_router(feedback.router,     prefix=PREFIX)
+app.include_router(premium.router,      prefix=PREFIX)
+app.include_router(alerts.router,       prefix=PREFIX)
+app.include_router(competitors.router,  prefix=PREFIX)
+app.include_router(reports.router,      prefix=PREFIX)
 
 
 # ── Health ───────────────────────────────────────────────────────────────────

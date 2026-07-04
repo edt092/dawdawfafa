@@ -9,6 +9,8 @@ import { fmtInt, fmtCOP, fmtAbbr, estadoStyle, fuenteStyle } from '@/lib/format'
 import type { TableRow, DonutSlice } from '@/lib/types'
 import EstadoBadge from '@/components/EstadoBadge'
 import FuenteBadge from '@/components/FuenteBadge'
+import FollowCompetitorButton from '@/components/FollowCompetitorButton'
+import ExportReportButton from '@/components/ExportReportButton'
 
 function toRow(c: ContractItem, router: ReturnType<typeof useRouter>): TableRow {
   const es = estadoStyle(c.estado)
@@ -102,14 +104,20 @@ export default function ContratistaPage({ params }: { params: { slug: string } }
       </button>
 
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
-          Proveedor / contratista
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
+            Proveedor / contratista
+          </div>
+          <h1 style={{ margin: '0 0 8px', fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, color: 'var(--text)' }}>
+            {name}
+          </h1>
+          <span style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>NIT {nitStr}</span>
         </div>
-        <h1 style={{ margin: '0 0 8px', fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, color: 'var(--text)' }}>
-          {name}
-        </h1>
-        <span style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>NIT {nitStr}</span>
+        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+          <FollowCompetitorButton supplierName={name} />
+          <ExportReportButton kind="contractor" nombre={name} />
+        </div>
       </div>
 
       {/* KPIs */}

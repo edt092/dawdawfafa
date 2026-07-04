@@ -4,9 +4,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from '@/lib/theme-context'
 import { useFeedback } from '@/lib/feedback-context'
+import { usePremium } from '@/lib/premium-context'
 
 const NAV = [
   { label: 'Dashboard', href: '/' },
+  { label: 'Mis alertas', href: '/alertas' },
+  { label: 'Competidores', href: '/competidores' },
   { label: 'Sobre el proyecto', href: '/sobre' },
 ]
 
@@ -14,6 +17,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const { theme, toggleTheme } = useTheme()
   const { openFeedback } = useFeedback()
+  const { requirePro } = usePremium()
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' || pathname.startsWith('/entidad') || pathname.startsWith('/contratista') : pathname === href
@@ -65,6 +69,23 @@ export default function Navbar() {
               {item.label}
             </Link>
           ))}
+
+          <button
+            onClick={() => requirePro(() => {}, 'navbar')}
+            style={{
+              marginLeft: 10,
+              background: 'linear-gradient(135deg, var(--primary), #8B5CF6)',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 700,
+              padding: '7px 12px',
+              borderRadius: 8,
+              color: '#fff',
+            }}
+          >
+            ContrataData Pro
+          </button>
 
           <button
             onClick={openFeedback}

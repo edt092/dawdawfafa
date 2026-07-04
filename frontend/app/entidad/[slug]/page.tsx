@@ -12,6 +12,7 @@ import EstadoBadge from '@/components/EstadoBadge'
 import FuenteBadge from '@/components/FuenteBadge'
 import ChartImage from '@/components/charts/ChartImage'
 import EvolucionChart from '@/components/charts/EvolucionChart'
+import ExportReportButton from '@/components/ExportReportButton'
 
 function toRow(c: ContractItem, router: ReturnType<typeof useRouter>): TableRow {
   const es = estadoStyle(c.estado)
@@ -79,23 +80,26 @@ export default function EntidadPage({ params }: { params: { slug: string } }) {
       </button>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 24 }}>
-        {summary?.sigla && (
-          <span style={{
-            fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--primary)',
-            background: 'var(--primary-weak)', borderRadius: 7, padding: '6px 10px', marginTop: 6, whiteSpace: 'nowrap',
-          }}>
-            {summary.sigla}
-          </span>
-        )}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
-            Entidad pública contratante
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          {summary?.sigla && (
+            <span style={{
+              fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--primary)',
+              background: 'var(--primary-weak)', borderRadius: 7, padding: '6px 10px', marginTop: 6, whiteSpace: 'nowrap',
+            }}>
+              {summary.sigla}
+            </span>
+          )}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
+              Entidad pública contratante
+            </div>
+            <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, color: 'var(--text)' }}>
+              {name}
+            </h1>
           </div>
-          <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, color: 'var(--text)' }}>
-            {name}
-          </h1>
         </div>
+        <ExportReportButton kind="entity" nombre={name} />
       </div>
 
       {/* KPIs */}

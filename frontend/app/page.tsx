@@ -15,6 +15,7 @@ import EvolucionChart from '@/components/charts/EvolucionChart'
 import CalidadChart from '@/components/charts/CalidadChart'
 import ChartImage from '@/components/charts/ChartImage'
 import FeedbackBanner from '@/components/FeedbackBanner'
+import SaveAlertButton from '@/components/SaveAlertButton'
 
 const PER_PAGE = 50
 type ChartTab = 'entidades' | 'evolucion' | 'calidad' | 'calendario' | 'distribucion'
@@ -231,6 +232,10 @@ export default function DashboardPage() {
         onApply={applyFilters}
         onClear={clearFilters}
       />
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20, marginTop: -8 }}>
+        <SaveAlertButton filters={filters} />
+      </div>
 
       {/* Contracts Table */}
       <ContractsTable

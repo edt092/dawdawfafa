@@ -152,6 +152,84 @@ class Feedback(Base):
         return f"<Feedback id={self.id} type='{self.feedback_type}'>"
 
 
+class PremiumUser(Base):
+    """Acceso premium por email — sin login, sin passwords. MVP de validación
+    (ver scalability.md): un admin marca manualmente el email como 'pro' en
+    esta tabla después de que el pago se coordina fuera de banda."""
+    __tablename__ = "premium_users"
+
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    email           = Column(String(255), unique=True, nullable=False)
+    # free | pro
+    plan            = Column(String(20), nullable=False, default="free")
+    # active | trial | expired
+    premium_status  = Column(String(20), nullable=False, default="trial")
+    premium_until   = Column(DateTime)
+    created_at      = Column(DateTime, nullable=False, default=func.now())
+    updated_at      = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+
+    def __repr__(self) -> str:
+        return f"<PremiumUser email='{self.email}' plan='{self.plan}'>"
+
+
+class PremiumLead(Base):
+    """Emails interesados en el plan Pro desde el paywall suave — antes de
+    tener cobros automatizados, esto es la señal de validación de demanda."""
+    __tablename__ = "premium_leads"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    email      = Column(String(255), nullable=False)
+    # Feature que disparó el paywall (ej. 'alerts', 'competitors', 'reports') — nullable.
+    feature    = Column(String(50))
+    created_at = Column(DateTime, nullable=False, default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<PremiumLead email='{self.email}'>"
+
+
+class SavedAlert(Base):
+    """Alerta guardada por un usuario Pro sobre una búsqueda/filtro."""
+    __tablename__ = "saved_alerts"
+
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    user_email      = Column(String(255), nullable=False)
+    name            = Column(String(200), nullable=False)
+    entidad         = Column(String(500))
+    contratista     = Column(String(500))
+    estado          = Column(String(100))
+    desde           = Column(Date)
+    hasta           = Column(Date)
+    valor_min       = Column(Numeric(18, 2))
+    valor_max       = Column(Numeric(18, 2))
+    # daily | weekly
+    frecuencia      = Column(String(20), nullable=False, default="daily")
+    is_active       = Column(Boolean, nullable=False, default=True)
+    last_checked_at = Column(DateTime)
+    created_at      = Column(DateTime, nullable=False, default=func.now())
+    updated_at      = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+
+    def __repr__(self) -> str:
+        return f"<SavedAlert id={self.id} name='{self.name}' user='{self.user_email}'>"
+
+
+class CompetitorWatch(Base):
+    """Contratista seguido por un usuario Pro (monitor de competidores)."""
+    __tablename__ = "competitor_watchlist"
+    __table_args__ = (
+        UniqueConstraint("user_email", "supplier_name", name="uq_competitor_watch_user_supplier"),
+    )
+
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    user_email    = Column(String(255), nullable=False)
+    supplier_name = Column(String(500), nullable=False)
+    nickname      = Column(String(200))
+    is_active     = Column(Boolean, nullable=False, default=True)
+    created_at    = Column(DateTime, nullable=False, default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<CompetitorWatch user='{self.user_email}' supplier='{self.supplier_name}'>"
+
+
 class RejectedRecord(Base):
     __tablename__ = "rejected_records"
 
