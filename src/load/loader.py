@@ -224,28 +224,46 @@ def set_last_run_at(engine, dt: datetime) -> None:
 
 
 def get_last_processed_updated_at(engine) -> datetime | None:
-    """Retorna el cursor de progreso incremental (avanza por lote exitoso,
-    no solo al final de la corrida), o None si no existe."""
+    """Cursor legado (solo fecha, sin ':id'). Ya no se escribe, solo se lee
+    como bootstrap de get_last_source_cursor en bases que aún no tienen el
+    cursor compuesto (ver migración en pipeline.py)."""
     with Session(engine) as session:
         row = session.get(PipelineMeta, "last_processed_updated_at")
         return datetime.fromisoformat(row.value) if row else None
 
 
-def set_last_processed_updated_at(engine, dt: datetime) -> None:
-    """Persiste el cursor de progreso incremental tras un lote exitoso, para
-    que una corrida cancelada a mitad de camino pueda retomar desde ahí en
-    vez de repetir todo el incremental desde el inicio de la corrida."""
+def get_last_source_cursor(engine) -> tuple[str | None, str | None]:
+    """Cursor incremental compuesto (:updated_at crudo de Socrata, :id), o
+    (None, None) si no existe todavía. A diferencia del cursor legado (solo
+    fecha), el ':id' desempata cuando miles/millones de filas comparten el
+    mismo :updated_at por un bulk update en la fuente — evita re-escanear esa
+    ventana completa en cada corrida."""
+    with Session(engine) as session:
+        dt_row = session.get(PipelineMeta, "last_source_updated_at")
+        id_row = session.get(PipelineMeta, "last_source_id")
+        return (dt_row.value if dt_row else None, id_row.value if id_row else None)
+
+
+def set_last_source_cursor(engine, updated_at: str, source_id: str) -> None:
+    """Persiste el cursor compuesto tras un lote exitoso, para que una corrida
+    cancelada a mitad de camino retome desde ahí en vez de repetir todo el
+    incremental desde el inicio de la corrida."""
+    now = datetime.utcnow()
     with Session(engine) as session:
         with session.begin():
-            stmt = (
-                pg_insert(PipelineMeta)
-                .values(key="last_processed_updated_at", value=dt.isoformat(), updated_at=dt)
-                .on_conflict_do_update(
-                    index_elements=["key"],
-                    set_={"value": dt.isoformat(), "updated_at": dt},
+            for key, value in (
+                ("last_source_updated_at", updated_at),
+                ("last_source_id", source_id),
+            ):
+                stmt = (
+                    pg_insert(PipelineMeta)
+                    .values(key=key, value=value, updated_at=now)
+                    .on_conflict_do_update(
+                        index_elements=["key"],
+                        set_={"value": value, "updated_at": now},
+                    )
                 )
-            )
-            session.execute(stmt)
+                session.execute(stmt)
 
 
 def start_pipeline_run(engine, started_at: datetime, modo: str) -> int:

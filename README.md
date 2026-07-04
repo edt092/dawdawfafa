@@ -97,7 +97,9 @@ FORCE_FULL_LOAD=1 python pipeline.py
 
 ## Pipeline ETL — modo incremental
 
-La primera ejecución descarga todos los registros disponibles y guarda un timestamp en `pipeline_meta`. Las corridas siguientes filtran la API de Socrata con `$where=:updated_at >= '<last_run>'`, extrayendo solo contratos nuevos o modificados desde entonces.
+La primera ejecución descarga todos los registros disponibles. Las corridas siguientes usan un cursor compuesto `(:updated_at, :id)` guardado en `pipeline_meta` y filtran la API de Socrata con `$where=(:updated_at > '<cursor>' OR (:updated_at = '<cursor>' AND :id > '<last_id>'))`. El `:id` desempata cuando la fuente hace un bulk update y miles/millones de filas quedan con el mismo `:updated_at` — sin él, cada corrida reprocesaría toda esa ventana aunque no haya nada realmente nuevo.
+
+Antes de extraer nada, el pipeline hace un *preflight*: una consulta `count(*)` liviana contra el mismo cursor. Si la fuente no publicó cambios, la corrida termina en segundos (`success_no_changes` en `pipeline_runs`) en vez de re-descargar y re-cargar millones de filas ya vistas.
 
 La carga es un upsert real: cada contrato se identifica por `(fuente, proceso_de_compra)` — el id de proceso de SECOP, no una combinación de campos de negocio — así que si Socrata reporta un cambio de `estado` o `valor` sobre un contrato ya cargado, la fila se actualiza en vez de insertarse duplicada o ignorarse.
 

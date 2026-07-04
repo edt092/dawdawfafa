@@ -49,6 +49,7 @@ export const fuenteStyle = (f: string) => {
 export const pipelineRunStatusMeta = (status: string): { label: string; color: string } => {
   const map: Record<string, { label: string; color: string }> = {
     success: { label: 'Exitosa', color: '#10B981' },
+    success_no_changes: { label: 'Sin cambios', color: '#10B981' },
     success_with_errors: { label: 'Con errores', color: '#F59E0B' },
     degraded_aborted: { label: 'Abortada', color: '#EF4444' },
     failed: { label: 'Fallida', color: '#EF4444' },

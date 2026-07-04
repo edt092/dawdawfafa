@@ -41,6 +41,14 @@ class SecopExtractionError(RuntimeError):
     """
 
 
+def _strip_z(ts: str | None) -> str | None:
+    """Socrata devuelve :updated_at con sufijo 'Z' (ej. '...863Z'); lo quitamos
+    para poder reinyectar el mismo valor tal cual en un $where de SoQL."""
+    if ts and ts.endswith("Z"):
+        return ts[:-1]
+    return ts
+
+
 class SecopSocrataExtractor(BaseExtractor):
     SOURCE_NAME = "SECOP_SOCRATA"
 
@@ -49,13 +57,20 @@ class SecopSocrataExtractor(BaseExtractor):
         app_token: str | None = None,
         max_records: int | None = None,
         date_from: str | None = None,
-        since: datetime | None = None,
+        since_updated_at: datetime | str | None = None,
+        since_id: str | None = None,
         error_log: "PipelineErrorLog | None" = None,
     ):
         self._app_token = app_token or os.getenv("SOCRATA_APP_TOKEN")
         self._max_records = max_records
         self._date_from = date_from or os.getenv("DATE_FROM")
-        self._since = since  # filtro incremental por :updated_at
+        # Cursor incremental compuesto (:updated_at, :id). Se acepta datetime u
+        # str para no obligar al llamador a formatear (ver pipeline.py, que lo
+        # arma tanto desde el cursor nuevo -str- como desde el legado -datetime-).
+        if isinstance(since_updated_at, datetime):
+            since_updated_at = since_updated_at.strftime("%Y-%m-%dT%H:%M:%S")
+        self._since_updated_at = since_updated_at
+        self._since_id = since_id
         self._error_log = error_log
 
     def _build_headers(self) -> dict:
@@ -75,22 +90,50 @@ class SecopSocrataExtractor(BaseExtractor):
         base = min(BACKOFF_SECONDS * (2 ** (attempt - 1)), MAX_BACKOFF_SECONDS)
         return base + random.uniform(0, base * 0.25)
 
-    def _build_where(self, last_id: str | None) -> str | None:
+    def _build_where(self, cursor_updated_at: str | None, cursor_id: str | None) -> str | None:
         conditions = []
-        if self._since:
-            # Incremental: solo registros añadidos/modificados en Socrata desde la última corrida
-            conditions.append(f":updated_at >= '{self._since.strftime('%Y-%m-%dT%H:%M:%S')}'")
+        if cursor_updated_at:
+            if cursor_id:
+                # Cursor compuesto: cuando la fuente hace un bulk update, miles/millones
+                # de filas comparten el mismo :updated_at. Filtrar solo por fecha
+                # (">=") reprocesa toda esa ventana en cada corrida; con ':id' como
+                # desempate avanzamos exactamente por donde quedó la corrida anterior,
+                # tanto entre páginas de una misma corrida como entre corridas.
+                conditions.append(
+                    f"(:updated_at > '{cursor_updated_at}' OR "
+                    f"(:updated_at = '{cursor_updated_at}' AND :id > '{cursor_id}'))"
+                )
+            else:
+                # Bootstrap: solo tenemos fecha (cursor legado o primera corrida
+                # incremental tras este cambio), todavía sin ':id' de desempate.
+                conditions.append(f":updated_at >= '{cursor_updated_at}'")
         if self._date_from:
             # Filtro manual por fecha de firma (backfill o carga inicial acotada)
             conditions.append(f"fecha_de_firma >= '{self._date_from}'")
-        if last_id is not None:
-            # Paginación por cursor estable en vez de $offset: en Socrata (Socrata SODA2)
-            # los offsets profundos se degradan y son frágiles. ':id' es único y estable
-            # bajo el mismo $order, así que ':id < último visto' avanza sin re-escanear.
-            conditions.append(f":id < '{last_id}'")
         return " AND ".join(conditions) if conditions else None
 
-    def _fetch_page(self, last_id: str | None) -> list[dict]:
+    def preflight(self) -> int | None:
+        """Cuenta liviana de registros pendientes desde el cursor actual, sin
+        descargar ni procesar nada. Si la fuente no publicó cambios (total=0),
+        el pipeline puede terminar en segundos en vez de re-extraer y re-cargar
+        millones de filas ya vistas. Retorna None si la consulta falla — en ese
+        caso el pipeline sigue con la corrida completa como si no supiéramos."""
+        where = self._build_where(self._since_updated_at, self._since_id)
+        params = {"$select": "count(*) as total"}
+        if where:
+            params["$where"] = where
+        try:
+            resp = requests.get(
+                ENDPOINT, headers=self._build_headers(), params=params, timeout=REQUEST_TIMEOUT,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except requests.RequestException as exc:
+            logger.warning("Preflight falló, se continúa con la corrida completa: %s", exc)
+            return None
+        return int(data[0]["total"]) if data else 0
+
+    def _fetch_page(self, cursor_updated_at: str | None, cursor_id: str | None) -> list[dict]:
         last_exc: Exception | None = None
         params = {
             "$limit": PAGE_SIZE,
@@ -106,9 +149,9 @@ class SecopSocrataExtractor(BaseExtractor):
                 "documento_proveedor,"
                 "nit_entidad"
             ),
-            "$order": ":id DESC",
+            "$order": ":updated_at ASC, :id ASC",
         }
-        where = self._build_where(last_id)
+        where = self._build_where(cursor_updated_at, cursor_id)
         if where:
             params["$where"] = where
 
@@ -125,28 +168,29 @@ class SecopSocrataExtractor(BaseExtractor):
             except requests.RequestException as exc:
                 last_exc = exc
                 logger.warning(
-                    "Intento %d/%d fallido (last_id=%s, where=%s): %s",
-                    attempt, MAX_RETRIES, last_id, where, exc,
+                    "Intento %d/%d fallido (cursor=%s/%s, where=%s): %s",
+                    attempt, MAX_RETRIES, cursor_updated_at, cursor_id, where, exc,
                 )
                 if attempt < MAX_RETRIES:
                     retry_after = None
                     if exc.response is not None:
                         retry_after = exc.response.headers.get("Retry-After")
                     time.sleep(self._compute_backoff(attempt, retry_after))
-        msg = f"Se agotaron los reintentos en last_id={last_id} (where={where}): {last_exc}"
+        msg = f"Se agotaron los reintentos en cursor={cursor_updated_at}/{cursor_id} (where={where}): {last_exc}"
         logger.error(msg)
         if self._error_log:
             self._error_log.log("Extracción — API", msg)
         raise SecopExtractionError(msg) from last_exc
 
     def extract(self) -> Iterator[dict]:
-        last_id: str | None = None
+        cursor_updated_at = self._since_updated_at
+        cursor_id = self._since_id
         total_yielded = 0
 
         logger.info("Iniciando extracción SECOP Socrata (endpoint=%s)", ENDPOINT)
 
         while True:
-            page = self._fetch_page(last_id)
+            page = self._fetch_page(cursor_updated_at, cursor_id)
             if not page:
                 break
 
@@ -157,11 +201,13 @@ class SecopSocrataExtractor(BaseExtractor):
                     logger.info("Límite de registros alcanzado (%d).", self._max_records)
                     return
 
+            last = page[-1]
+            cursor_updated_at = _strip_z(last.get(":updated_at")) or cursor_updated_at
+            cursor_id = last.get(":id") or cursor_id
+            logger.debug("Página procesada (cursor=%s/%s, registros=%d)", cursor_updated_at, cursor_id, len(page))
+
             if len(page) < PAGE_SIZE:
                 break  # última página
-
-            last_id = page[-1].get(":id")
-            logger.debug("Página procesada (last_id=%s, registros=%d)", last_id, len(page))
             time.sleep(PAGE_DELAY)
 
         logger.info("Extracción finalizada: %d registros extraídos.", total_yielded)
@@ -179,5 +225,6 @@ class SecopSocrataExtractor(BaseExtractor):
             "proceso_de_compra": (raw.get("proceso_de_compra") or "").strip(),
             "fuente": SecopSocrataExtractor.SOURCE_NAME,
             "_raw": raw,  # payload original para rejected_records
-            "_updated_at": raw.get(":updated_at"),  # para el cursor incremental por ventana
+            "_updated_at": _strip_z(raw.get(":updated_at")),  # cursor incremental compuesto
+            "_id": raw.get(":id"),  # desempate del cursor cuando :updated_at se repite en bulk
         }
