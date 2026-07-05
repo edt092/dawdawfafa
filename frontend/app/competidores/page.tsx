@@ -1,10 +1,15 @@
 'use client'
 
+import { notFound } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useMe } from '@/lib/useMe'
 import PremiumGate from '@/components/PremiumGate'
 import CompetitorCard from '@/components/CompetitorCard'
+
+// Página oculta a propósito hasta pasar a producción — ver Navbar.tsx.
+// Quitar esta línea cuando esté lista para mostrarse.
+const HIDDEN_UNTIL_PRODUCTION = true
 
 function CompetitorsList() {
   const { auth0User } = useMe()
@@ -44,6 +49,8 @@ function CompetitorsList() {
 }
 
 export default function CompetidoresPage() {
+  if (HIDDEN_UNTIL_PRODUCTION) notFound()
+
   return (
     <main style={{ maxWidth: 1340, margin: '0 auto', padding: '32px 28px 80px' }} className="animate-fade">
       <div style={{ marginBottom: 24 }}>

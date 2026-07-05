@@ -11,6 +11,7 @@ import EstadoBadge from '@/components/EstadoBadge'
 import FuenteBadge from '@/components/FuenteBadge'
 import FollowCompetitorButton from '@/components/FollowCompetitorButton'
 import ExportReportButton from '@/components/ExportReportButton'
+import { PREMIUM_ENABLED } from '@/lib/featureFlags'
 
 function toRow(c: ContractItem, router: ReturnType<typeof useRouter>): TableRow {
   const es = estadoStyle(c.estado)
@@ -114,10 +115,12 @@ export default function ContratistaPage({ params }: { params: { slug: string } }
           </h1>
           <span style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>NIT {nitStr}</span>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-          <FollowCompetitorButton supplierName={name} />
-          <ExportReportButton kind="contractor" nombre={name} />
-        </div>
+        {PREMIUM_ENABLED && (
+          <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+            <FollowCompetitorButton supplierName={name} />
+            <ExportReportButton kind="contractor" nombre={name} />
+          </div>
+        )}
       </div>
 
       {/* KPIs */}

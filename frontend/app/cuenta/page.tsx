@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useMe } from '@/lib/useMe'
 import ProUpgradeCard from '@/components/ProUpgradeCard'
+import { PREMIUM_ENABLED } from '@/lib/featureFlags'
 
 const PLAN_LABELS: Record<string, string> = {
   trialing: 'En prueba',
@@ -69,28 +70,32 @@ export default function CuentaPage() {
         </div>
       </div>
 
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 20,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
-            Plan actual
+      {PREMIUM_ENABLED && (
+        <>
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 20,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
+                Plan actual
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
+                {me?.plan === 'pro' ? 'ContrataData Pro' : 'Free'}
+              </div>
+            </div>
+            <span style={{
+              fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8,
+              color: me?.plan === 'pro' ? 'var(--success)' : 'var(--muted)',
+              background: me?.plan === 'pro' ? 'rgba(16,185,129,0.15)' : 'var(--surface2)',
+            }}>
+              {PLAN_LABELS[me?.premium_status ?? 'none']}
+            </span>
           </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
-            {me?.plan === 'pro' ? 'ContrataData Pro' : 'Free'}
-          </div>
-        </div>
-        <span style={{
-          fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8,
-          color: me?.plan === 'pro' ? 'var(--success)' : 'var(--muted)',
-          background: me?.plan === 'pro' ? 'rgba(16,185,129,0.15)' : 'var(--surface2)',
-        }}>
-          {PLAN_LABELS[me?.premium_status ?? 'none']}
-        </span>
-      </div>
 
-      {me?.plan !== 'pro' && <ProUpgradeCard />}
+          {me?.plan !== 'pro' && <ProUpgradeCard />}
+        </>
+      )}
     </main>
   )
 }

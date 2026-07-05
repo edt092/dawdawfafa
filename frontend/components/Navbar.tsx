@@ -7,11 +7,13 @@ import { useTheme } from '@/lib/theme-context'
 import { useFeedback } from '@/lib/feedback-context'
 import { useMe } from '@/lib/useMe'
 import { usePremiumStatus } from '@/lib/usePremiumStatus'
+import { PREMIUM_ENABLED } from '@/lib/featureFlags'
 
+// "Mis alertas" y "Competidores" ocultas del nav a propósito hasta que esas
+// páginas estén listas para producción (ver frontend/app/alertas y
+// frontend/app/competidores — bloqueadas con notFound() mientras tanto).
 const NAV = [
   { label: 'Dashboard', href: '/' },
-  { label: 'Mis alertas', href: '/alertas' },
-  { label: 'Competidores', href: '/competidores' },
   { label: 'Sobre el proyecto', href: '/sobre' },
 ]
 
@@ -158,7 +160,7 @@ export default function Navbar() {
                 <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {auth0User?.name || auth0User?.email}
                 </span>
-                {status?.is_pro && (
+                {PREMIUM_ENABLED && status?.is_pro && (
                   <span style={{
                     fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', color: '#fff',
                     background: 'linear-gradient(135deg, var(--primary), #8B5CF6)',
@@ -185,7 +187,7 @@ export default function Navbar() {
                     >
                       Mi cuenta
                     </Link>
-                    {status && !status.is_pro && (
+                    {PREMIUM_ENABLED && status && !status.is_pro && (
                       <Link
                         href="/cuenta"
                         onClick={() => setMenuOpen(false)}

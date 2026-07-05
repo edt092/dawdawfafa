@@ -13,6 +13,7 @@ import FuenteBadge from '@/components/FuenteBadge'
 import ChartImage from '@/components/charts/ChartImage'
 import EvolucionChart from '@/components/charts/EvolucionChart'
 import ExportReportButton from '@/components/ExportReportButton'
+import { PREMIUM_ENABLED } from '@/lib/featureFlags'
 
 function toRow(c: ContractItem, router: ReturnType<typeof useRouter>): TableRow {
   const es = estadoStyle(c.estado)
@@ -99,7 +100,7 @@ export default function EntidadPage({ params }: { params: { slug: string } }) {
             </h1>
           </div>
         </div>
-        <ExportReportButton kind="entity" nombre={name} />
+        {PREMIUM_ENABLED && <ExportReportButton kind="entity" nombre={name} />}
       </div>
 
       {/* KPIs */}
