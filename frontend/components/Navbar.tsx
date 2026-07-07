@@ -9,12 +9,14 @@ import { useMe } from '@/lib/useMe'
 import { usePremiumStatus } from '@/lib/usePremiumStatus'
 import { PREMIUM_ENABLED } from '@/lib/featureFlags'
 
-// "Mis alertas" y "Competidores" ocultas del nav a propósito hasta que esas
-// páginas estén listas para producción (ver frontend/app/alertas y
-// frontend/app/competidores — bloqueadas con notFound() mientras tanto).
 const NAV = [
   { label: 'Dashboard', href: '/' },
   { label: 'Sobre el proyecto', href: '/sobre' },
+]
+
+const PREMIUM_NAV = [
+  { label: 'Mis alertas', href: '/alertas' },
+  { label: 'Competidores', href: '/competidores' },
 ]
 
 export default function Navbar() {
@@ -67,7 +69,7 @@ export default function Navbar() {
         </Link>
 
         <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {NAV.map(item => (
+          {[...NAV, ...(PREMIUM_ENABLED ? PREMIUM_NAV : [])].map(item => (
             <Link
               key={item.href}
               href={item.href}
