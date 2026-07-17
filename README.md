@@ -226,3 +226,4 @@ Documentación interactiva en `https://api.contratadata.xyz/api/docs`.
 | `GET /pipeline/rejected` | Registros rechazados por motivo y fuente |
 | `GET /estados/` | Valores distintos de estado |
 | `GET /health` | Health check |
+
