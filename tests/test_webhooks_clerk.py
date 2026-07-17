@@ -1,7 +1,9 @@
 """Tests de POST /api/webhooks/clerk (ver auth2.md FASE 6/9) — firma Svix
 válida/inválida/repetida, y que user.deleted desactiva sin borrar pagos."""
 
+import base64
 import json
+import secrets as secrets_module
 from datetime import datetime, timezone
 
 import pytest
@@ -9,7 +11,10 @@ from svix.webhooks import Webhook
 
 from src.load.models import AppUser, PaymentReference, Subscription
 
-SECRET = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+# Generado en cada test run (no un literal fijo) para que nunca haya un
+# secreto "whsec_..." estático en el código — un scanner de secretos no
+# puede distinguirlo de una credencial real solo por el formato.
+SECRET = "whsec_" + base64.b64encode(secrets_module.token_bytes(24)).decode()
 
 
 def _signed_headers(payload_str: str, msg_id: str = "msg_test_1") -> dict:

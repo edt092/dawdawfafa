@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.5.20",
+    "@clerk/nextjs": "7.5.18",
     "@radix-ui/react-slot": "^1.1.0",
     "@tanstack/react-query": "^5.101.2",
     "@tremor/react": "^3.18.7",
