@@ -28,7 +28,7 @@ jobs:
         with:
           project_id: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
           branch_name: pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
-          parent_branch: main
+          parent_branch: production
           api_key: ${{ secrets.NEON_API_KEY }}
 
       - name: Enmascarar el connection string en los logs
